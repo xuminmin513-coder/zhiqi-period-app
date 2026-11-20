@@ -1,0 +1,24 @@
+# Dependencies and generated build output
+node_modules/
+dist/
+
+# Local environment and support configuration
+.env
+.env.*
+!.env.example
+
+# Browser verification artifacts and local screenshots
+.playwright-cli/
+zhiqi-*.png
+zhiqi-*.yaml
+
+# Private backups and health records
+*.zqbackup
+知期备份-*.json
+
+# Local project memory and assistant state
+.workbuddy/
+
+# OS and logs
+.DS_Store
+*.log

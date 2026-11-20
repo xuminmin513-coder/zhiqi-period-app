@@ -1,0 +1,21 @@
+{
+  "name": "zhiqi-period-ui",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "node --test src/utils/*.test.js src/services/*.test.js",
+    "check:release": "npm run build && node scripts/check-release.mjs"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@playwright/cli": "^0.1.25",
+    "vite": "^6.0.0"
+  }
+}
