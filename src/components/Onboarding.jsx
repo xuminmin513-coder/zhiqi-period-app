@@ -1,4 +1,5 @@
 import Icon from "./Icon.jsx";
+import BrandMark from "./BrandMark.jsx";
 import { getToday, toISO } from "../utils/date.js";
 
 export default function Onboarding({ onComplete, onDemo, startupError = "" }) {
@@ -10,7 +11,7 @@ export default function Onboarding({ onComplete, onDemo, startupError = "" }) {
 
   return (
     <main className="onboarding">
-      <div className="onboarding-brand"><span className="brand-mark">知</span><span>知期</span></div>
+      <div className="onboarding-brand"><BrandMark /><span>知期</span></div>
       {startupError && <div className="notice-box" style={{ marginTop: 20 }} role="alert">{startupError}。你仍可开始新记录；如需保留旧数据，请先不要清除浏览器存储。</div>}
       <section className="onboarding-hero">
         <span className="pill"><Icon name="shield" size={14} />无需注册，本地优先</span>

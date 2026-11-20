@@ -1,4 +1,5 @@
 import Icon from "./Icon.jsx";
+import BrandMark from "./BrandMark.jsx";
 import { HAS_SUPPORT_CONTACT, SUPPORT_EMAIL, SUPPORT_URL } from "../utils/release.js";
 
 const EFFECTIVE_DATE = "2026年11月20日";
@@ -95,7 +96,7 @@ export default function LegalPage({ type, onBack }) {
     <main className="legal-page">
       <header className="legal-header">
         <button className="icon-button" onClick={onBack} aria-label="返回应用"><Icon name="left" /></button>
-        <div className="onboarding-brand"><span className="brand-mark">知</span><span>知期</span></div>
+        <div className="onboarding-brand"><BrandMark /><span>知期</span></div>
       </header>
       <article className="legal-document">
         <span className="pill sage"><Icon name="file" size={14} />正式文档预览</span>

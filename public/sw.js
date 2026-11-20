@@ -1,5 +1,5 @@
-const CACHE_NAME = "zhiqi-react-ui-v5";
-const CORE_ASSETS = ["./", "./index.html", "./icon.svg", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png", "./manifest.webmanifest"];
+const CACHE_NAME = "zhiqi-react-ui-v7";
+const CORE_ASSETS = ["./", "./index.html", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png", "./manifest.webmanifest"];
 
 async function precacheApplication() {
   const cache = await caches.open(CACHE_NAME);

@@ -43,6 +43,7 @@ a { color: var(--primary); }
 .icon { width: 20px; height: 20px; flex: 0 0 auto; }
 
 .loading-screen { min-height: 100dvh; display: grid; place-content: center; justify-items: center; gap: 18px; color: var(--muted); background: var(--bg); }
+.brand-logo { display: block; object-fit: cover; }
 .brand-mark { width: 64px; height: 64px; display: grid; place-items: center; border-radius: 21px; color: #fff; background: var(--primary); font-size: 27px; font-weight: 600; box-shadow: var(--shadow); }
 
 .app-shell { width: 100%; max-width: 540px; min-height: 100dvh; margin: 0 auto; padding-bottom: calc(104px + env(safe-area-inset-bottom)); background: var(--bg); }
