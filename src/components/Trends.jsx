@@ -2,7 +2,7 @@ import Icon from "./Icon.jsx";
 import { PageHeader } from "./Home.jsx";
 import { average } from "../utils/period.js";
 
-export default function Trends({ state, onOpenModal }) {
+export default function Trends({ state, onOpenModal, embedded = false }) {
   const cycles = state.cycles.length ? state.cycles : [state.typicalCycle || 30];
   const avg = average(cycles);
   const min = Math.min(...cycles);
@@ -13,9 +13,8 @@ export default function Trends({ state, onOpenModal }) {
   Object.values(state.logs).forEach((log) => (log.symptoms || []).forEach((symptom) => { symptomCounts[symptom] = (symptomCounts[symptom] || 0) + 1; }));
   const symptoms = Object.entries(symptomCounts).sort((a, b) => b[1] - a[1]).slice(0, 3);
 
-  return (
-    <section className="page" aria-label="趋势">
-      <PageHeader title="趋势" subtitle="看见变化，而不是给自己打分" />
+  const content = (
+    <>
       <div className="metric-grid">
         <article className="card metric-card"><strong>{avg}<small> 天</small></strong><span>平均周期间隔</span></article>
         <article className="card metric-card"><strong>{state.periodLength}<small> 天</small></strong><span>平均经期长度</span></article>
@@ -39,6 +38,15 @@ export default function Trends({ state, onOpenModal }) {
         </article>
       </section>
       <section className="section"><p className="disclaimer">趋势用于自我观察和就医沟通，不构成疾病诊断或健康评分。</p></section>
+    </>
+  );
+
+  if (embedded) return content;
+
+  return (
+    <section className="page" aria-label="趋势">
+      <PageHeader title="趋势" subtitle="看见变化，而不是给自己打分" />
+      {content}
     </section>
   );
 }

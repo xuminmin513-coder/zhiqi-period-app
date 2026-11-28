@@ -3,11 +3,15 @@ import assert from "node:assert/strict";
 import { addDays, diffDays, getToday, toISO } from "./date.js";
 import { calculateCycles, createBaseState, createDemoState, getPrediction } from "./period.js";
 
-test("演示状态包含完整历史与本地设置", () => {
+test("演示状态包含完整历史、演示计划与本地设置", () => {
   const state = createDemoState();
+  assert.equal(state.version, 2);
   assert.equal(state.historyStarts.length, 6);
   assert.equal(state.cycles.length, 5);
   assert.equal(state.settings.discreetNotifications, true);
+  assert.equal(state.settings.nickname, "");
+  assert.ok(state.planner.items.length >= 3);
+  assert.ok(state.planner.goals.length >= 1);
 });
 
 test("有历史时使用中位周期间隔并输出两天浮动区间", () => {

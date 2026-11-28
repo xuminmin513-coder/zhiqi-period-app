@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import Icon from "./Icon.jsx";
 import { SettingToggle } from "./Profile.jsx";
+import { GoalModal, ItemModal, NicknameModal } from "./PlannerModals.jsx";
 import { addDays, fullDate, getToday, toISO } from "../utils/date.js";
 import { getPrediction } from "../utils/period.js";
 
-function ModalFrame({ title, subtitle, children, onClose }) {
+export function ModalFrame({ title, subtitle, children, onClose }) {
   const closeRef = useRef(null);
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -105,7 +106,7 @@ function BackupModal({ onClose, onExport, onImport }) {
   }
 
   return (
-    <ModalFrame title="备份与恢复" subtitle="加密在离开本机前完成，密码不会被保存" onClose={onClose}>
+    <ModalFrame title="备份与恢复" subtitle="包含经期、计划与目标；离开本机前已完成加密" onClose={onClose}>
       <div className="segmented-control" role="tablist" aria-label="备份或恢复">
         <button type="button" role="tab" aria-selected={mode === "export"} className={`segment-button ${mode === "export" ? "active" : ""}`} onClick={() => setMode("export")}>加密备份</button>
         <button type="button" role="tab" aria-selected={mode === "import"} className={`segment-button ${mode === "import" ? "active" : ""}`} onClick={() => setMode("import")}>恢复记录</button>
@@ -120,7 +121,7 @@ function BackupModal({ onClose, onExport, onImport }) {
         </> : <>
           <div className="form-group"><label htmlFor="backup-file">选择备份文件</label><input className="input file-input" id="backup-file" type="file" accept=".zqbackup,.json,application/json" onChange={(event) => setFile(event.target.files[0] || null)} required />{file && <small>{file.name} · {Math.max(1, Math.round(file.size / 1024))} KB</small>}</div>
           <div className="form-group"><label htmlFor="restore-password">备份密码</label><input className="input" id="restore-password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" placeholder="加密备份必填；早期 JSON 可留空" /></div>
-          <div className="notice-box">恢复会先校验完整文件，再覆盖当前浏览器中的记录。密码错误或文件损坏时不会写入。</div>
+          <div className="notice-box">支持恢复当前工作台备份与旧版备份（自动无损升级）。密码错误或文件损坏时不会覆盖本机记录。</div>
           <button className="primary-button full-width" type="submit" disabled={busy || !file}><Icon name="upload" size={18} />{busy ? "正在校验和恢复…" : "验证并恢复"}</button>
         </>}
       </form>
@@ -130,9 +131,9 @@ function BackupModal({ onClose, onExport, onImport }) {
 
 function PrivacyModal({ onClose, onOpenLegal }) {
   return (
-    <ModalFrame title="隐私与健康声明" subtitle="UI 预览版的明确边界" onClose={onClose}>
+    <ModalFrame title="隐私与健康声明" subtitle="本地个人工作台的明确边界" onClose={onClose}>
       <div className="info-list">
-        <div className="info-item"><Icon name="lock" size={23} /><div><strong>数据只保存在当前浏览器</strong><p>本版没有账号、后端接口、广告或第三方统计。清除网站数据、换浏览器或换设备可能导致记录丢失。</p></div></div>
+        <div className="info-item"><Icon name="lock" size={23} /><div><strong>数据只保存在当前浏览器</strong><p>本版没有账号、后端接口、广告或第三方统计。经期记录、个人计划、目标和本地称呼只保存在当前设备浏览器中。</p></div></div>
         <div className="info-item"><Icon name="shield" size={23} /><div><strong>设备安全仍然重要</strong><p>本地存储不等于绝对加密。请使用系统锁屏，并妥善保管备份文件与密码；忘记备份密码将无法恢复。</p></div></div>
         <div className="info-item"><Icon name="alert" size={23} /><div><strong>不用于医疗决策</strong><p>预测和趋势只供自我观察，不用于避孕、诊断或治疗。持续异常或明显不适时，请咨询专业医务人员。</p></div></div>
       </div>
@@ -148,7 +149,7 @@ function InstallModal({ onClose }) {
       <div className="info-list">
         <div className="info-item"><span className="info-number">iOS</span><div><strong>iPhone／iPad</strong><p>使用 Safari 打开本页面，点击“分享”，再选择“添加到主屏幕”。</p></div></div>
         <div className="info-item"><span className="info-number">安卓</span><div><strong>Android</strong><p>使用 Chrome 等支持的浏览器打开，选择浏览器菜单中的“安装应用”或“添加到主屏幕”。</p></div></div>
-        <div className="info-item"><Icon name="info" size={23} /><div><strong>提醒能力有所不同</strong><p>安装和离线页面不代表系统通知在所有浏览器都可用，提醒功能需单独验证。</p></div></div>
+        <div className="info-item"><Icon name="info" size={23} /><div><strong>提醒能力说明</strong><p>定时推送将在第三期接入；届时需从 iPhone 主屏幕图标打开并授权系统通知。</p></div></div>
       </div>
     </ModalFrame>
   );
@@ -156,30 +157,49 @@ function InstallModal({ onClose }) {
 
 function RemindersModal({ state, onClose, onSettingChange }) {
   return (
-    <ModalFrame title="提醒偏好" subtitle="先保存偏好，系统通知后续接入" onClose={onClose}>
+    <ModalFrame title="提醒偏好" subtitle="先保存偏好，定时推送将在第三期接入" onClose={onClose}>
       <div className="card settings-card">
         <div className="setting-row"><Icon name="bell" /><span className="setting-copy"><strong>下次经期提醒</strong><span>当前只保存偏好，不会发送系统通知</span></span><SettingToggle settingKey="periodReminder" label="下次经期提醒" settings={state.settings} onSettingChange={onSettingChange} /></div>
         <div className="setting-row"><Icon name="shield" /><span className="setting-copy"><strong>隐蔽通知文案</strong><span>未来通知默认不直接显示敏感词</span></span><SettingToggle settingKey="discreetNotifications" label="隐蔽通知文案" settings={state.settings} onSettingChange={onSettingChange} /></div>
       </div>
-      <div className="notice-box" style={{ marginTop: 18 }}>不同浏览器的后台通知能力不一致。商店版本将优先使用可验证的本地通知。</div>
+      <div className="notice-box" style={{ marginTop: 18 }}>当前版本尚未开启后台推送服务器，偏好仅保存在本机。</div>
     </ModalFrame>
   );
 }
 
 function ResetModal({ onClose, onReset }) {
   return (
-    <ModalFrame title="确认清除本机数据？" subtitle="这个操作无法撤销" onClose={onClose}>
-      <div className="notice-box">将删除当前浏览器中的经期、症状和设置。建议先导出备份。</div>
+    <ModalFrame title="确认清除本机全部数据？" subtitle="这个操作无法撤销" onClose={onClose}>
+      <div className="notice-box">将一并删除当前浏览器中的全部经期记录、症状、个人计划、目标、打卡记录、本地称呼及历史升级备份。建议先导出加密备份。</div>
       <div className="button-row" style={{ marginTop: 20 }}><button className="secondary-button" onClick={onClose}>保留记录</button><button className="danger-button" onClick={onReset}>确认清除</button></div>
     </ModalFrame>
   );
 }
 
-export default function Modal({ modal, state, onClose, onSaveDaily, onSavePeriod, onExport, onImport, onReset, onSettingChange, onOpenLegal }) {
+export default function Modal({
+  modal,
+  state,
+  onClose,
+  onSaveDaily,
+  onSavePeriod,
+  onSaveItem,
+  onDeleteItem,
+  onSaveGoal,
+  onDeleteGoal,
+  onSaveNickname,
+  onExport,
+  onImport,
+  onReset,
+  onSettingChange,
+  onOpenLegal
+}) {
   if (!modal) return null;
   const props = { state, onClose };
   if (modal.type === "daily") return <DailyModal {...props} date={modal.date} onSave={onSaveDaily} />;
   if (modal.type === "period") return <PeriodModal {...props} date={modal.date} onSave={onSavePeriod} />;
+  if (modal.type === "item") return <ItemModal {...props} payload={modal.payload} onSave={onSaveItem} onDelete={onDeleteItem} />;
+  if (modal.type === "goal") return <GoalModal {...props} payload={modal.payload} onSave={onSaveGoal} onDelete={onDeleteGoal} />;
+  if (modal.type === "nickname") return <NicknameModal {...props} onSave={onSaveNickname} />;
   if (modal.type === "prediction") return <PredictionModal {...props} />;
   if (modal.type === "backup") return <BackupModal onClose={onClose} onExport={onExport} onImport={onImport} />;
   if (modal.type === "privacy") return <PrivacyModal onClose={onClose} onOpenLegal={onOpenLegal} />;

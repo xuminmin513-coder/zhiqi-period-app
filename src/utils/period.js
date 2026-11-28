@@ -1,4 +1,5 @@
 import { addDays, diffDays, getToday, toISO } from "./date.js";
+import { createEmptyPlanner } from "./planner.js";
 
 export function median(values) {
   const sorted = [...values].sort((a, b) => a - b);
@@ -20,7 +21,11 @@ export function createDemoState() {
     historyStarts.unshift(cursor);
   });
   const todayISO = toISO(getToday());
+  const weekAgoISO = toISO(addDays(todayISO, -7));
+  const yesterdayISO = toISO(addDays(todayISO, -1));
+  const nextMonthISO = toISO(addDays(todayISO, 30));
   return {
+    version: 2,
     onboarded: true,
     lastPeriodStart: lastStart,
     periodLength: 5,
@@ -31,12 +36,65 @@ export function createDemoState() {
       [todayISO]: { symptoms: ["轻微腰酸"], flow: "", note: "" },
       [toISO(addDays(lastStart, 1))]: { symptoms: ["痛经"], flow: "medium", note: "" }
     },
-    settings: { periodReminder: true, discreetNotifications: true }
+    planner: {
+      goals: [
+        { id: "demo-goal-1", title: "读完两本喜欢的书", deadline: nextMonthISO, status: "active", createdAt: weekAgoISO }
+      ],
+      items: [
+        {
+          id: "demo-item-1",
+          title: "晨间热身与拉伸",
+          date: weekAgoISO,
+          startTime: "08:00",
+          endTime: "08:20",
+          repeat: { type: "daily" },
+          repeatEnd: null,
+          goalId: null,
+          note: "保持肩颈放松",
+          doneAt: null,
+          reminder: null,
+          createdAt: weekAgoISO
+        },
+        {
+          id: "demo-item-2",
+          title: "阅读第 3 章并记笔记",
+          date: todayISO,
+          startTime: null,
+          endTime: null,
+          repeat: { type: "none" },
+          repeatEnd: null,
+          goalId: "demo-goal-1",
+          note: "",
+          doneAt: null,
+          reminder: null,
+          createdAt: todayISO
+        },
+        {
+          id: "demo-item-3",
+          title: "喝满 8 杯温水",
+          date: weekAgoISO,
+          startTime: null,
+          endTime: null,
+          repeat: { type: "daily" },
+          repeatEnd: null,
+          goalId: null,
+          note: "",
+          doneAt: null,
+          reminder: null,
+          createdAt: weekAgoISO
+        }
+      ],
+      completions: {
+        [yesterdayISO]: ["demo-item-1", "demo-item-3"]
+      }
+    },
+    settings: { periodReminder: true, discreetNotifications: true, nickname: "" }
   };
 }
 
 export function createBaseState(lastPeriodStart, typicalCycle) {
   return {
+    version: 2,
     onboarded: true,
     lastPeriodStart,
     periodLength: 5,
@@ -44,7 +102,8 @@ export function createBaseState(lastPeriodStart, typicalCycle) {
     cycles: [],
     historyStarts: [lastPeriodStart],
     logs: {},
-    settings: { periodReminder: true, discreetNotifications: true }
+    planner: createEmptyPlanner(),
+    settings: { periodReminder: true, discreetNotifications: true, nickname: "" }
   };
 }
 

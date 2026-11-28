@@ -1,10 +1,15 @@
-const CACHE_NAME = "zhiqi-react-ui-v7";
+const CACHE_NAME = "zhiqi-react-ui-v8";
 const CORE_ASSETS = ["./", "./index.html", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png", "./manifest.webmanifest"];
 
 async function precacheApplication() {
   const cache = await caches.open(CACHE_NAME);
-  await cache.addAll(CORE_ASSETS);
-  const response = await fetch("./index.html");
+  await Promise.all(
+    CORE_ASSETS.map(async (asset) => {
+      const response = await fetch(asset, { cache: "no-cache" });
+      if (response.ok) await cache.put(asset, response);
+    })
+  );
+  const response = await fetch("./index.html", { cache: "no-cache" });
   const html = await response.text();
   const buildAssets = [...html.matchAll(/(?:src|href)="([^"]+)"/g)]
     .map((match) => match[1])
@@ -13,31 +18,60 @@ async function precacheApplication() {
 }
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(precacheApplication());
-  self.skipWaiting();
+  event.waitUntil(
+    (async () => {
+      await precacheApplication();
+      await self.skipWaiting();
+    })()
+  );
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))))
+    (async () => {
+      const keys = await caches.keys();
+      await Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)));
+      await self.clients.claim();
+    })()
   );
-  self.clients.claim();
 });
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+  const requestUrl = new URL(event.request.url);
+
+  if (event.request.mode === "navigate") {
+    event.respondWith(
+      fetch(event.request.url, { cache: "no-cache" })
+        .then(async (response) => {
+          if (response.ok) {
+            const cache = await caches.open(CACHE_NAME);
+            await cache.put(event.request, response.clone());
+            await cache.put("./index.html", response.clone());
+          }
+          return response;
+        })
+        .catch(async () => {
+          const cached = await caches.match(event.request, { ignoreVary: requestUrl.origin === self.location.origin });
+          if (cached) return cached;
+          return (await caches.match("./index.html")) || new Response("Offline resource unavailable", { status: 503, statusText: "Offline" });
+        })
+    );
+    return;
+  }
+
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        const copy = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        if (response.ok) {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        }
         return response;
       })
       .catch(async () => {
-        const requestUrl = new URL(event.request.url);
         const cached = await caches.match(event.request, { ignoreVary: requestUrl.origin === self.location.origin });
         if (cached) return cached;
-        if (event.request.mode === "navigate") return caches.match("./index.html");
         return new Response("Offline resource unavailable", { status: 503, statusText: "Offline" });
       })
   );

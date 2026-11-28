@@ -19,6 +19,9 @@ zhiqi-*.yaml
 # Local project memory and assistant state
 .workbuddy/
 
+# Local-only design specs and implementation plans
+docs/superpowers/
+
 # OS and logs
 .DS_Store
 *.log

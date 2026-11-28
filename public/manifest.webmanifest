@@ -1,7 +1,7 @@
 {
-  "name": "知期 · 经期记录与预测",
+  "name": "知期 · 个人工作台与经期记录",
   "short_name": "知期",
-  "description": "本地优先、注重隐私与可解释预测的经期记录工具。",
+  "description": "本地优先的个人专属工作台：定制计划、习惯打卡、长期目标与经期区间预测。",
   "start_url": "./?source=pwa",
   "scope": "./",
   "display": "standalone",
