@@ -1,5 +1,6 @@
 import { fromISO, toISO } from "../utils/date.js";
 import { createEmptyPlanner } from "../utils/planner.js";
+import { createEmptyReviews, isValidPeriodKey, parseIsoWeekKey } from "../utils/review.js";
 
 export const STORAGE_KEY = "zhiqi-react-state-v1";
 export const LEGACY_BACKUP_KEY = "zhiqi-react-state-v1-pre-v2";
@@ -12,6 +13,12 @@ export const MAX_PLANNER_GOALS = 100;
 export const MAX_COMPLETION_DAYS = 3660;
 export const MAX_COMPLETIONS_PER_DAY = 200;
 export const MAX_NICKNAME_LENGTH = 12;
+export const MAX_DAILY_REVIEWS = 3660;
+export const MAX_WEEKLY_REVIEWS = 530;
+export const MAX_MONTHLY_REVIEWS = 240;
+export const MAX_YEARLY_REVIEWS = 50;
+export const MAX_REVIEW_TEXT_LENGTH = 500;
+export const MAX_SNAPSHOT_TITLES = 50;
 export const STORAGE_WARN_BYTES = 3 * 1024 * 1024;
 export const STORAGE_LIMIT_BYTES = 5 * 1024 * 1024;
 
@@ -40,9 +47,29 @@ function isValidId(value) {
   return typeof value === "string" && value.trim().length >= 1 && value.length <= 64;
 }
 
+function isNonNegInt(value) {
+  return Number.isInteger(value) && value >= 0;
+}
+
+function isRateInt(value) {
+  return Number.isInteger(value) && value >= 0 && value <= 100;
+}
+
+function validateOptionalScore(value, label) {
+  if (value === null || value === undefined) return null;
+  if (!Number.isInteger(value) || value < 1 || value > 5) fail(`${label}分值需为 1 到 5 的整数`);
+  return value;
+}
+
+function validateBoundedText(value, maxLength, label) {
+  if (value === undefined) return "";
+  if (typeof value !== "string" || value.length > maxLength) fail(`${label}格式无效或超过 ${maxLength} 字`);
+  return value;
+}
+
 function validateSettings(settings) {
   if (settings === undefined) {
-    return { periodReminder: true, discreetNotifications: true, nickname: "" };
+    return { periodReminder: true, discreetNotifications: true, nickname: "", reviewCycleInsight: false };
   }
   if (!settings || typeof settings !== "object" || Array.isArray(settings)) fail("设置格式无效");
   let nickname = "";
@@ -54,7 +81,8 @@ function validateSettings(settings) {
   return {
     periodReminder: typeof settings.periodReminder === "boolean" ? settings.periodReminder : true,
     discreetNotifications: typeof settings.discreetNotifications === "boolean" ? settings.discreetNotifications : true,
-    nickname
+    nickname,
+    reviewCycleInsight: typeof settings.reviewCycleInsight === "boolean" ? settings.reviewCycleInsight : false
   };
 }
 
@@ -207,6 +235,325 @@ function validatePlanner(planner) {
   return { items, goals, completions };
 }
 
+function validateTitleList(list, maxCount, label) {
+  if (!Array.isArray(list) || list.length > maxCount || list.some((t) => typeof t !== "string" || t.length > 60)) {
+    fail(`${label}快照列表格式无效`);
+  }
+  return [...list];
+}
+
+function validateCycleComparison(comp) {
+  if (!comp || typeof comp !== "object" || Array.isArray(comp) || typeof comp.sufficient !== "boolean") {
+    fail("复盘周期对比快照格式无效");
+  }
+  const checkNullableNum = (v, min, max) => v === null || (typeof v === "number" && !Number.isNaN(v) && v >= min && v <= max);
+  if (
+    !checkNullableNum(comp.cycleDaysRate, 0, 100) ||
+    !checkNullableNum(comp.otherDaysRate, 0, 100) ||
+    !checkNullableNum(comp.cycleDaysEnergy, 1, 5) ||
+    !checkNullableNum(comp.otherDaysEnergy, 1, 5)
+  ) {
+    fail("复盘周期对比数值无效");
+  }
+  return {
+    sufficient: comp.sufficient,
+    cycleDaysRate: comp.cycleDaysRate,
+    otherDaysRate: comp.otherDaysRate,
+    cycleDaysEnergy: comp.cycleDaysEnergy,
+    otherDaysEnergy: comp.otherDaysEnergy
+  };
+}
+
+function validateDailyReviews(bucket) {
+  if (bucket === undefined) return {};
+  if (!bucket || typeof bucket !== "object" || Array.isArray(bucket)) fail("日复盘列表格式无效");
+  const entries = Object.entries(bucket);
+  if (entries.length > MAX_DAILY_REVIEWS) fail(`日复盘超过 ${MAX_DAILY_REVIEWS} 条上限`);
+  return Object.fromEntries(entries.map(([key, item]) => {
+    if (!isValidISODate(key)) fail("日复盘日期标识无效");
+    if (!item || typeof item !== "object" || Array.isArray(item)) fail("日复盘内容无效");
+    if (!isValidISODate(item.savedAt) || !isValidISODate(item.updatedAt)) fail("日复盘保存日期无效");
+    const snap = item.snapshot;
+    if (
+      !snap ||
+      typeof snap !== "object" ||
+      !isNonNegInt(snap.plannedCount) ||
+      !isNonNegInt(snap.doneCount) ||
+      !isRateInt(snap.completionRate) ||
+      !["period", "pre", "other"].includes(snap.cyclePhase || "other")
+    ) {
+      fail("日复盘统计快照格式无效");
+    }
+    let convertedTomorrow = null;
+    if (item.convertedTomorrow !== null && item.convertedTomorrow !== undefined) {
+      if (
+        typeof item.convertedTomorrow !== "object" ||
+        !isValidId(item.convertedTomorrow.itemId) ||
+        typeof item.convertedTomorrow.sourceText !== "string" ||
+        item.convertedTomorrow.sourceText.length > MAX_REVIEW_TEXT_LENGTH
+      ) {
+        fail("日复盘转计划标记格式无效");
+      }
+      convertedTomorrow = { itemId: item.convertedTomorrow.itemId, sourceText: item.convertedTomorrow.sourceText };
+    }
+    return [key, {
+      key,
+      mood: validateOptionalScore(item.mood, "复盘心情"),
+      energy: validateOptionalScore(item.energy, "复盘精力"),
+      bestThing: validateBoundedText(item.bestThing, MAX_REVIEW_TEXT_LENGTH, "今日最满意"),
+      obstacle: validateBoundedText(item.obstacle, MAX_REVIEW_TEXT_LENGTH, "今日困难"),
+      tomorrowFocus: validateBoundedText(item.tomorrowFocus, MAX_REVIEW_TEXT_LENGTH, "明日重点"),
+      convertedTomorrow,
+      snapshot: {
+        plannedCount: snap.plannedCount,
+        doneCount: snap.doneCount,
+        completionRate: snap.completionRate,
+        completedTitles: validateTitleList(snap.completedTitles, MAX_SNAPSHOT_TITLES, "已完成"),
+        pendingTitles: validateTitleList(snap.pendingTitles, MAX_SNAPSHOT_TITLES, "未完成"),
+        cyclePhase: snap.cyclePhase || "other"
+      },
+      savedAt: item.savedAt,
+      updatedAt: item.updatedAt
+    }];
+  }));
+}
+
+function validateWeeklyReviews(bucket) {
+  if (bucket === undefined) return {};
+  if (!bucket || typeof bucket !== "object" || Array.isArray(bucket)) fail("周复盘列表格式无效");
+  const entries = Object.entries(bucket);
+  if (entries.length > MAX_WEEKLY_REVIEWS) fail(`周复盘超过 ${MAX_WEEKLY_REVIEWS} 条上限`);
+  return Object.fromEntries(entries.map(([key, item]) => {
+    const parsed = parseIsoWeekKey(key);
+    if (!parsed) fail("周复盘周期标识无效");
+    if (!item || typeof item !== "object" || Array.isArray(item)) fail("周复盘内容无效");
+    if (!isValidISODate(item.savedAt) || !isValidISODate(item.updatedAt)) fail("周复盘保存日期无效");
+    const priorities = item.nextWeekPriorities === undefined ? [] : item.nextWeekPriorities;
+    if (!Array.isArray(priorities) || priorities.length > 3 || priorities.some((p) => typeof p !== "string" || !p.trim() || p.length > 60)) {
+      fail("下周重点格式无效或超过 3 条上限");
+    }
+    const converted = item.convertedPriorities === undefined ? [] : item.convertedPriorities;
+    if (!Array.isArray(converted) || converted.length > 10 || converted.some((c) => !c || typeof c.text !== "string" || c.text.length > 60 || !isValidId(c.itemId))) {
+      fail("周复盘转计划标记格式无效");
+    }
+    const snap = item.snapshot;
+    if (
+      !snap ||
+      typeof snap !== "object" ||
+      !isNonNegInt(snap.plannedCount) ||
+      !isNonNegInt(snap.doneCount) ||
+      !isRateInt(snap.completionRate) ||
+      !Array.isArray(snap.dailyRates) ||
+      snap.dailyRates.length !== 7 ||
+      !Array.isArray(snap.habits) ||
+      snap.habits.length > 100 ||
+      !Array.isArray(snap.goals) ||
+      snap.goals.length > 100
+    ) {
+      fail("周复盘统计快照格式无效");
+    }
+    return [key, {
+      key,
+      startDate: parsed.startISO,
+      endDate: parsed.endISO,
+      wins: validateBoundedText(item.wins, MAX_REVIEW_TEXT_LENGTH, "本周亮点"),
+      improvements: validateBoundedText(item.improvements, MAX_REVIEW_TEXT_LENGTH, "本周改进"),
+      nextWeekPriorities: priorities.map((p) => p.trim()),
+      convertedPriorities: converted.map((c) => ({ text: c.text, itemId: c.itemId })),
+      snapshot: {
+        plannedCount: snap.plannedCount,
+        doneCount: snap.doneCount,
+        completionRate: snap.completionRate,
+        dailyRates: snap.dailyRates.map((d) => ({
+          date: isValidISODate(d?.date) ? d.date : fail("周复盘日期项无效"),
+          planned: isNonNegInt(d.planned) ? d.planned : fail("周复盘计划数无效"),
+          done: isNonNegInt(d.done) ? d.done : fail("周复盘完成数无效"),
+          rate: isRateInt(d.rate) ? d.rate : fail("周复盘完成率无效")
+        })),
+        habits: snap.habits.map((h) => ({
+          id: String(h.id || ""),
+          title: String(h.title || "").slice(0, 60),
+          scheduled: Number(h.scheduled) || 0,
+          done: Number(h.done) || 0,
+          rate: Number(h.rate) || 0,
+          streak: Number(h.streak) || 0
+        })),
+        goals: snap.goals.map((g) => ({
+          id: String(g.id || ""),
+          title: String(g.title || "").slice(0, 40),
+          doneCount: Number(g.doneCount) || 0,
+          totalCount: Number(g.totalCount) || 0,
+          deltaDone: Number(g.deltaDone) || 0,
+          percent: Number(g.percent) || 0,
+          status: String(g.status || "active")
+        })),
+        avgMood: snap.avgMood === null ? null : Number(snap.avgMood),
+        avgEnergy: snap.avgEnergy === null ? null : Number(snap.avgEnergy)
+      },
+      savedAt: item.savedAt,
+      updatedAt: item.updatedAt
+    }];
+  }));
+}
+
+function validateMonthlyReviews(bucket) {
+  if (bucket === undefined) return {};
+  if (!bucket || typeof bucket !== "object" || Array.isArray(bucket)) fail("月复盘列表格式无效");
+  const entries = Object.entries(bucket);
+  if (entries.length > MAX_MONTHLY_REVIEWS) fail(`月复盘超过 ${MAX_MONTHLY_REVIEWS} 条上限`);
+  return Object.fromEntries(entries.map(([key, item]) => {
+    if (!isValidPeriodKey("monthly", key)) fail("月复盘周期标识无效");
+    if (!item || typeof item !== "object" || Array.isArray(item)) fail("月复盘内容无效");
+    if (!isValidISODate(item.savedAt) || !isValidISODate(item.updatedAt)) fail("月复盘保存日期无效");
+    let convertedGoal = null;
+    if (item.convertedGoal !== null && item.convertedGoal !== undefined) {
+      if (
+        typeof item.convertedGoal !== "object" ||
+        !isValidId(item.convertedGoal.goalId) ||
+        typeof item.convertedGoal.sourceText !== "string" ||
+        item.convertedGoal.sourceText.length > MAX_REVIEW_TEXT_LENGTH
+      ) {
+        fail("月复盘转目标标记格式无效");
+      }
+      convertedGoal = { goalId: item.convertedGoal.goalId, sourceText: item.convertedGoal.sourceText };
+    }
+    const snap = item.snapshot;
+    if (
+      !snap ||
+      typeof snap !== "object" ||
+      !isNonNegInt(snap.plannedCount) ||
+      !isNonNegInt(snap.doneCount) ||
+      !isRateInt(snap.completionRate) ||
+      !Array.isArray(snap.weeklyRates) ||
+      snap.weeklyRates.length > 6 ||
+      !Array.isArray(snap.habits) ||
+      snap.habits.length > 100 ||
+      !isNonNegInt(snap.completedGoalsCount) ||
+      !Array.isArray(snap.highlights) ||
+      snap.highlights.length > 31
+    ) {
+      fail("月复盘统计快照格式无效");
+    }
+    const md = snap.moodDistribution || {};
+    return [key, {
+      key,
+      gain: validateBoundedText(item.gain, MAX_REVIEW_TEXT_LENGTH, "本月收获"),
+      regret: validateBoundedText(item.regret, MAX_REVIEW_TEXT_LENGTH, "本月遗憾"),
+      nextMonthGoal: validateBoundedText(item.nextMonthGoal, MAX_REVIEW_TEXT_LENGTH, "下月目标"),
+      convertedGoal,
+      snapshot: {
+        plannedCount: snap.plannedCount,
+        doneCount: snap.doneCount,
+        completionRate: snap.completionRate,
+        weeklyRates: snap.weeklyRates.map((w) => ({
+          label: String(w.label || "").slice(0, 12),
+          startDate: isValidISODate(w.startDate) ? w.startDate : fail("月复盘分段日期无效"),
+          endDate: isValidISODate(w.endDate) ? w.endDate : fail("月复盘分段日期无效"),
+          planned: Number(w.planned) || 0,
+          done: Number(w.done) || 0,
+          rate: Number(w.rate) || 0
+        })),
+        habits: snap.habits.map((h) => ({
+          id: String(h.id || ""),
+          title: String(h.title || "").slice(0, 60),
+          scheduled: Number(h.scheduled) || 0,
+          done: Number(h.done) || 0,
+          rate: Number(h.rate) || 0
+        })),
+        completedGoalsCount: snap.completedGoalsCount,
+        completedGoalTitles: validateTitleList(snap.completedGoalTitles || [], MAX_SNAPSHOT_TITLES, "完成目标"),
+        moodDistribution: {
+          1: Number(md[1]) || 0,
+          2: Number(md[2]) || 0,
+          3: Number(md[3]) || 0,
+          4: Number(md[4]) || 0,
+          5: Number(md[5]) || 0
+        },
+        highlights: snap.highlights.map((h) => ({
+          date: isValidISODate(h?.date) ? h.date : fail("月复盘高光日期无效"),
+          text: validateBoundedText(h.text, MAX_REVIEW_TEXT_LENGTH, "高光摘录")
+        })),
+        cycleComparison: validateCycleComparison(snap.cycleComparison)
+      },
+      savedAt: item.savedAt,
+      updatedAt: item.updatedAt
+    }];
+  }));
+}
+
+function validateYearlyReviews(bucket) {
+  if (bucket === undefined) return {};
+  if (!bucket || typeof bucket !== "object" || Array.isArray(bucket)) fail("年复盘列表格式无效");
+  const entries = Object.entries(bucket);
+  if (entries.length > MAX_YEARLY_REVIEWS) fail(`年复盘超过 ${MAX_YEARLY_REVIEWS} 条上限`);
+  return Object.fromEntries(entries.map(([key, item]) => {
+    if (!isValidPeriodKey("yearly", key)) fail("年复盘周期标识无效");
+    if (!item || typeof item !== "object" || Array.isArray(item)) fail("年复盘内容无效");
+    if (!isValidISODate(item.savedAt) || !isValidISODate(item.updatedAt)) fail("年复盘保存日期无效");
+    const snap = item.snapshot;
+    if (
+      !snap ||
+      typeof snap !== "object" ||
+      !isNonNegInt(snap.plannedCount) ||
+      !isNonNegInt(snap.doneCount) ||
+      !isRateInt(snap.completionRate) ||
+      !Array.isArray(snap.monthlyRates) ||
+      snap.monthlyRates.length !== 12 ||
+      !isNonNegInt(snap.reviewedDaysCount) ||
+      !Array.isArray(snap.highlights) ||
+      snap.highlights.length > 12
+    ) {
+      fail("年复盘统计快照格式无效");
+    }
+    let longestStreak = null;
+    if (snap.longestStreak !== null && snap.longestStreak !== undefined) {
+      if (typeof snap.longestStreak !== "object" || typeof snap.longestStreak.title !== "string" || !isNonNegInt(snap.longestStreak.days)) {
+        fail("年复盘最长连续打卡格式无效");
+      }
+      longestStreak = { title: snap.longestStreak.title.slice(0, 60), days: snap.longestStreak.days };
+    }
+    return [key, {
+      key,
+      keywords: validateBoundedText(item.keywords, 100, "年度关键词"),
+      proudest: validateBoundedText(item.proudest, MAX_REVIEW_TEXT_LENGTH, "最骄傲的事"),
+      nextYearVision: validateBoundedText(item.nextYearVision, MAX_REVIEW_TEXT_LENGTH, "明年展望"),
+      snapshot: {
+        plannedCount: snap.plannedCount,
+        doneCount: snap.doneCount,
+        completionRate: snap.completionRate,
+        monthlyRates: snap.monthlyRates.map((m, idx) => ({
+          month: idx + 1,
+          key: isValidPeriodKey("monthly", m?.key) ? m.key : fail("年复盘月度键无效"),
+          planned: Number(m.planned) || 0,
+          done: Number(m.done) || 0,
+          rate: isRateInt(m.rate) ? m.rate : fail("年复盘月度完成率无效")
+        })),
+        completedGoalTitles: validateTitleList(snap.completedGoalTitles || [], 100, "年度完成目标"),
+        longestStreak,
+        reviewedDaysCount: snap.reviewedDaysCount,
+        highlights: snap.highlights.map((h) => ({
+          month: isValidPeriodKey("monthly", h?.month) ? h.month : fail("年复盘高光月份无效"),
+          text: validateBoundedText(h.text, MAX_REVIEW_TEXT_LENGTH, "月度收获摘录")
+        })),
+        cycleComparison: validateCycleComparison(snap.cycleComparison)
+      },
+      savedAt: item.savedAt,
+      updatedAt: item.updatedAt
+    }];
+  }));
+}
+
+function validateReviews(reviews) {
+  if (reviews === undefined) return createEmptyReviews();
+  if (!reviews || typeof reviews !== "object" || Array.isArray(reviews)) fail("复盘数据格式无效");
+  return {
+    daily: validateDailyReviews(reviews.daily),
+    weekly: validateWeeklyReviews(reviews.weekly),
+    monthly: validateMonthlyReviews(reviews.monthly),
+    yearly: validateYearlyReviews(reviews.yearly)
+  };
+}
+
 export function validateState(input) {
   if (!input || typeof input !== "object" || Array.isArray(input)) fail("记录整体格式无效");
   if (input.version !== undefined) {
@@ -233,6 +580,7 @@ export function validateState(input) {
     historyStarts,
     logs: validateLogs(input.logs),
     planner: validatePlanner(input.planner),
+    reviews: validateReviews(input.reviews),
     settings: validateSettings(input.settings)
   };
 }

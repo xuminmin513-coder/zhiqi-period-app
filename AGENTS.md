@@ -34,10 +34,12 @@
 | 日期解析和日级计算 | `src/utils/date.js` | 使用本地日期，不让 UTC 换算改变用户日期 |
 | 周期状态、预测与周期间隔 | `src/utils/period.js` | 不直接访问 localStorage |
 | 计划纯计算、重复规则、打卡与目标进度 | `src/utils/planner.js` | 纯函数，不直接访问 localStorage |
+| 复盘周期换算、历史统计、快照冻结与转计划 | `src/utils/review.js` | 纯函数，不直接访问 localStorage |
 | 本地读取、写入、清除和状态校验 | `src/services/localRepository.js` | 其他模块不得直接访问 localStorage |
 | 备份加密、解密和文件合同 | `src/utils/backupCrypto.js` | UI 不拥有加密细节；密钥不得写入备份 |
 | 预测单元测试 | `src/utils/period.test.js` | 覆盖数据不足、规律与异常输入 |
 | 计划单元测试 | `src/utils/planner.test.js` | 覆盖日/周/月重复、短月与闰年、连续打卡、目标进度和过期迁移 |
+| 复盘单元测试 | `src/utils/review.test.js` | 覆盖跨年 ISO 周、闰年、历史补写、快照冻结、转计划防重与经期对比 |
 | 持久化与备份测试 | `src/services/localRepository.test.js`、`src/utils/backupCrypto.test.js` | 覆盖错误输入、密码错误和恢复 |
 | PWA 清单与离线脚本 | `public/manifest.webmanifest`、`public/sw.js` | 不宣称未经验证的后台通知能力 |
 | 隐私政策、用户协议与支持入口 | `src/components/LegalPage.jsx`、`src/utils/release.js` | 与实际数据行为一致；真实联系方式由发布环境提供 |

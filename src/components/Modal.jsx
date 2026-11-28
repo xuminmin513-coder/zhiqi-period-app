@@ -2,28 +2,32 @@ import { useEffect, useRef, useState } from "react";
 import Icon from "./Icon.jsx";
 import { SettingToggle } from "./Profile.jsx";
 import { GoalModal, ItemModal, NicknameModal } from "./PlannerModals.jsx";
+import ReviewModal from "./ReviewModal.jsx";
 import { addDays, fullDate, getToday, toISO } from "../utils/date.js";
 import { getPrediction } from "../utils/period.js";
 
-export function ModalFrame({ title, subtitle, children, onClose }) {
+export function ModalFrame({ title, subtitle, children, onClose, disableBackdropClose = false }) {
   const closeRef = useRef(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     closeRef.current?.focus();
-    const onKeyDown = (event) => { if (event.key === "Escape") onClose(); };
+    const onKeyDown = (event) => { if (event.key === "Escape") onCloseRef.current(); };
     document.addEventListener("keydown", onKeyDown);
     return () => {
       document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [onClose]);
+  }, []);
 
   return (
-    <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <div className="modal-backdrop" onMouseDown={(event) => { if (!disableBackdropClose && event.target === event.currentTarget) onClose(); }}>
       <section className="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
         <div className="sheet-handle" />
-        <header className="sheet-header"><div><h2 id="sheet-title">{title}</h2>{subtitle && <p>{subtitle}</p>}</div><button ref={closeRef} className="icon-button" onClick={onClose} aria-label="关闭"><Icon name="close" /></button></header>
+        <header className="sheet-header"><div><h2 id="sheet-title">{title}</h2>{subtitle && <p>{subtitle}</p>}</div><button ref={closeRef} type="button" className="icon-button" onClick={onClose} aria-label="关闭"><Icon name="close" /></button></header>
         {children}
       </section>
     </div>
@@ -106,7 +110,7 @@ function BackupModal({ onClose, onExport, onImport }) {
   }
 
   return (
-    <ModalFrame title="备份与恢复" subtitle="包含经期、计划与目标；离开本机前已完成加密" onClose={onClose}>
+    <ModalFrame title="备份与恢复" subtitle="包含经期、计划、目标与复盘；离开本机前已完成加密" onClose={onClose}>
       <div className="segmented-control" role="tablist" aria-label="备份或恢复">
         <button type="button" role="tab" aria-selected={mode === "export"} className={`segment-button ${mode === "export" ? "active" : ""}`} onClick={() => setMode("export")}>加密备份</button>
         <button type="button" role="tab" aria-selected={mode === "import"} className={`segment-button ${mode === "import" ? "active" : ""}`} onClick={() => setMode("import")}>恢复记录</button>
@@ -121,7 +125,7 @@ function BackupModal({ onClose, onExport, onImport }) {
         </> : <>
           <div className="form-group"><label htmlFor="backup-file">选择备份文件</label><input className="input file-input" id="backup-file" type="file" accept=".zqbackup,.json,application/json" onChange={(event) => setFile(event.target.files[0] || null)} required />{file && <small>{file.name} · {Math.max(1, Math.round(file.size / 1024))} KB</small>}</div>
           <div className="form-group"><label htmlFor="restore-password">备份密码</label><input className="input" id="restore-password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" placeholder="加密备份必填；早期 JSON 可留空" /></div>
-          <div className="notice-box">支持恢复当前工作台备份与旧版备份（自动无损升级）。密码错误或文件损坏时不会覆盖本机记录。</div>
+          <div className="notice-box">支持恢复当前工作台备份及 v1 / 第一期旧备份（自动无损升级）。密码错误或文件损坏时不会覆盖本机记录。</div>
           <button className="primary-button full-width" type="submit" disabled={busy || !file}><Icon name="upload" size={18} />{busy ? "正在校验和恢复…" : "验证并恢复"}</button>
         </>}
       </form>
@@ -133,9 +137,9 @@ function PrivacyModal({ onClose, onOpenLegal }) {
   return (
     <ModalFrame title="隐私与健康声明" subtitle="本地个人工作台的明确边界" onClose={onClose}>
       <div className="info-list">
-        <div className="info-item"><Icon name="lock" size={23} /><div><strong>数据只保存在当前浏览器</strong><p>本版没有账号、后端接口、广告或第三方统计。经期记录、个人计划、目标和本地称呼只保存在当前设备浏览器中。</p></div></div>
+        <div className="info-item"><Icon name="lock" size={23} /><div><strong>数据只保存在当前浏览器</strong><p>本版没有账号、后端接口、广告或第三方统计。经期记录、个人计划、目标、日/周/月/年复盘和本地称呼均只保存在当前设备浏览器中。</p></div></div>
         <div className="info-item"><Icon name="shield" size={23} /><div><strong>设备安全仍然重要</strong><p>本地存储不等于绝对加密。请使用系统锁屏，并妥善保管备份文件与密码；忘记备份密码将无法恢复。</p></div></div>
-        <div className="info-item"><Icon name="alert" size={23} /><div><strong>不用于医疗决策</strong><p>预测和趋势只供自我观察，不用于避孕、诊断或治疗。持续异常或明显不适时，请咨询专业医务人员。</p></div></div>
+        <div className="info-item"><Icon name="alert" size={23} /><div><strong>不用于医疗决策</strong><p>预测、趋势和复盘中的周期阶段对比只供自我观察，不用于避孕、诊断或治疗。持续异常或明显不适时，请咨询专业医务人员。</p></div></div>
       </div>
       <button className="soft-button full-width" onClick={onClose}>知道了</button>
       <div className="legal-links"><button className="text-button" onClick={() => onOpenLegal("privacy")}>完整隐私政策</button><button className="text-button" onClick={() => onOpenLegal("terms")}>完整用户协议</button></div>
@@ -170,7 +174,7 @@ function RemindersModal({ state, onClose, onSettingChange }) {
 function ResetModal({ onClose, onReset }) {
   return (
     <ModalFrame title="确认清除本机全部数据？" subtitle="这个操作无法撤销" onClose={onClose}>
-      <div className="notice-box">将一并删除当前浏览器中的全部经期记录、症状、个人计划、目标、打卡记录、本地称呼及历史升级备份。建议先导出加密备份。</div>
+      <div className="notice-box">将一并删除当前浏览器中的全部经期记录、症状、个人计划、目标、打卡记录、日/周/月/年复盘、本地称呼及历史升级备份。建议先导出加密备份。</div>
       <div className="button-row" style={{ marginTop: 20 }}><button className="secondary-button" onClick={onClose}>保留记录</button><button className="danger-button" onClick={onReset}>确认清除</button></div>
     </ModalFrame>
   );
@@ -186,6 +190,9 @@ export default function Modal({
   onDeleteItem,
   onSaveGoal,
   onDeleteGoal,
+  onSaveReview,
+  onDeleteReview,
+  onConvertReview,
   onSaveNickname,
   onExport,
   onImport,
@@ -199,6 +206,7 @@ export default function Modal({
   if (modal.type === "period") return <PeriodModal {...props} date={modal.date} onSave={onSavePeriod} />;
   if (modal.type === "item") return <ItemModal {...props} payload={modal.payload} onSave={onSaveItem} onDelete={onDeleteItem} />;
   if (modal.type === "goal") return <GoalModal {...props} payload={modal.payload} onSave={onSaveGoal} onDelete={onDeleteGoal} />;
+  if (modal.type === "review") return <ReviewModal {...props} payload={modal.payload} onSaveReview={onSaveReview} onDeleteReview={onDeleteReview} onConvertReview={onConvertReview} />;
   if (modal.type === "nickname") return <NicknameModal {...props} onSave={onSaveNickname} />;
   if (modal.type === "prediction") return <PredictionModal {...props} />;
   if (modal.type === "backup") return <BackupModal onClose={onClose} onExport={onExport} onImport={onImport} />;

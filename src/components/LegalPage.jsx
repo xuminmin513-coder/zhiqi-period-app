@@ -2,7 +2,7 @@ import Icon from "./Icon.jsx";
 import BrandMark from "./BrandMark.jsx";
 import { HAS_SUPPORT_CONTACT, SUPPORT_EMAIL, SUPPORT_URL } from "../utils/release.js";
 
-const EFFECTIVE_DATE = "2026年11月27日";
+const EFFECTIVE_DATE = "2026年11月28日";
 
 function Section({ title, children }) {
   return <section className="legal-section"><h2>{title}</h2><div className="legal-content">{children}</div></section>;
@@ -17,7 +17,7 @@ function Contact() {
 function PrivacyPolicy() {
   return <>
     <Section title="1. 我们如何处理你的记录">
-      <p>知期当前版本无需账号。你录入的个人计划（待办、习惯、长期目标、日程、打卡记录）、经期日期、周期长度、经量、症状、心情、备注、本地称呼和提醒偏好，仅保存在你当前使用的浏览器本地存储中。</p>
+      <p>知期当前版本无需账号。你录入的个人计划（待办、习惯、长期目标、日程、打卡记录）、日/周/月/年复盘记录、经期日期、周期长度、经量、症状、心情、备注、本地称呼和提醒偏好，仅保存在你当前使用的浏览器本地存储中。</p>
       <p>当前版本没有业务后端，不会把上述计划或健康记录上传给我们的服务器。</p>
     </Section>
     <Section title="2. 本地存储与设备安全">
@@ -56,7 +56,7 @@ function PrivacyPolicy() {
 function Terms() {
   return <>
     <Section title="1. 服务内容与接受条款">
-      <p>知期提供个人计划管理、经期记录、日历展示、趋势统计、区间预测、本地数据管理及加密备份工具。使用本应用即表示你理解并同意本条款和隐私政策；如不同意，请停止使用并删除本机数据。</p>
+      <p>知期提供个人计划管理、日/周/月/年复盘汇总、经期记录、日历展示、趋势统计、区间预测、本地数据管理及加密备份工具。使用本应用即表示你理解并同意本条款和隐私政策；如不同意，请停止使用并删除本机数据。</p>
     </Section>
     <Section title="2. 健康与预测边界">
       <p>所有预测均基于你录入的数据和当前统计规则，只是估算。个体周期会受到疾病、压力、旅行、药物、激素避孕、产后、哺乳和围绝经期等因素影响。</p>
@@ -101,7 +101,7 @@ export default function LegalPage({ type, onBack }) {
       <article className="legal-document">
         <span className="pill sage"><Icon name="file" size={14} />正式文档预览</span>
         <h1>{isPrivacy ? "隐私政策" : "用户协议"}</h1>
-        <p className="legal-meta">版本 1.1 · 生效日期：{EFFECTIVE_DATE}</p>
+        <p className="legal-meta">版本 1.2 · 生效日期：{EFFECTIVE_DATE}</p>
         <p className="legal-intro">{isPrivacy ? "我们只描述当前代码真实具备的数据行为，不把未来功能写成已经发生。" : "请在使用前理解记录、预测、备份和平台能力的边界。"}</p>
         {isPrivacy ? <PrivacyPolicy /> : <Terms />}
         <footer className="legal-footer"><button className="text-button" onClick={() => { window.location.hash = isPrivacy ? "#/terms" : "#/privacy"; }}>{isPrivacy ? "查看用户协议 →" : "查看隐私政策 →"}</button></footer>

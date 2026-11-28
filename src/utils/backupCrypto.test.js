@@ -74,5 +74,16 @@ test("包含计划、目标与本地昵称的状态可完整加密备份恢复�
   assert.equal(persisted.logs["2026-10-10"].note, "老备份备注");
   assert.equal(persisted.settings.periodReminder, false);
   assert.equal(persisted.settings.nickname, "");
+  assert.equal(persisted.settings.reviewCycleInsight, false);
   assert.deepEqual(persisted.planner, { items: [], goals: [], completions: {} });
+  assert.deepEqual(persisted.reviews, { daily: {}, weekly: {}, monthly: {}, yearly: {} });
+
+  // 导入第一期 v2（不含 reviews 字段）的加密备份同样自动无损兼容
+  const phase1BackupDoc = { ...persisted };
+  delete phase1BackupDoc.reviews;
+  delete phase1BackupDoc.settings.reviewCycleInsight;
+  const encryptedPhase1 = await encryptBackup(phase1BackupDoc, "phase1-pass-2026");
+  const restoredPhase1 = validateState(await decryptBackup(encryptedPhase1, "phase1-pass-2026"));
+  assert.deepEqual(restoredPhase1.reviews, { daily: {}, weekly: {}, monthly: {}, yearly: {} });
+  assert.equal(restoredPhase1.settings.reviewCycleInsight, false);
 });

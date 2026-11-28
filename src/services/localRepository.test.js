@@ -96,10 +96,70 @@ test("状态校验补充旧记录缺省字段并拒绝高版本数据", () => {
   delete state.planner;
   const validated = validateState(state);
   assert.equal(validated.version, 2);
-  assert.deepEqual(validated.settings, { periodReminder: true, discreetNotifications: true, nickname: "" });
+  assert.deepEqual(validated.settings, { periodReminder: true, discreetNotifications: true, nickname: "", reviewCycleInsight: false });
   assert.deepEqual(validated.logs, {});
   assert.deepEqual(validated.planner, { items: [], goals: [], completions: {} });
+  assert.deepEqual(validated.reviews, { daily: {}, weekly: {}, monthly: {}, yearly: {} });
   assert.throws(() => validateState({ ...state, version: 99 }), /更新应用/);
+});
+
+test("第一期无 reviews 的 v2 数据可无缝补齐复盘结构，非法复盘字段与越界输入会被拒绝，清除数据同步清空复盘", () => {
+  globalThis.localStorage = createStorage();
+  const phase1V2 = {
+    version: 2,
+    onboarded: true,
+    lastPeriodStart: "2026-11-10",
+    periodLength: 5,
+    typicalCycle: 28,
+    cycles: [28],
+    historyStarts: ["2026-10-13", "2026-11-10"],
+    logs: {},
+    planner: {
+      goals: [{ id: "g1", title: "第一期目标", deadline: null, status: "active", createdAt: "2026-11-10" }],
+      items: [],
+      completions: {}
+    },
+    settings: { periodReminder: true, discreetNotifications: true, nickname: "小满" }
+  };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(phase1V2));
+  const loaded = loadState();
+  assert.equal(loaded.settings.nickname, "小满");
+  assert.equal(loaded.settings.reviewCycleInsight, false);
+  assert.equal(loaded.planner.goals[0].title, "第一期目标");
+  assert.deepEqual(loaded.reviews, { daily: {}, weekly: {}, monthly: {}, yearly: {} });
+
+  // 非法心情分值与非法周键应被拒绝
+  assert.throws(() => validateState({
+    ...loaded,
+    reviews: {
+      ...loaded.reviews,
+      daily: {
+        "2026-11-28": {
+          key: "2026-11-28",
+          mood: 9,
+          energy: 3,
+          bestThing: "",
+          obstacle: "",
+          tomorrowFocus: "",
+          convertedTomorrow: null,
+          snapshot: { plannedCount: 0, doneCount: 0, completionRate: 0, completedTitles: [], pendingTitles: [], cyclePhase: "other" },
+          savedAt: "2026-11-28",
+          updatedAt: "2026-11-28"
+        }
+      }
+    }
+  }), /心情/);
+
+  assert.throws(() => validateState({
+    ...loaded,
+    reviews: {
+      ...loaded.reviews,
+      weekly: { "2025-W53": { key: "2025-W53" } }
+    }
+  }), /周复盘/);
+
+  clearState();
+  assert.equal(loadState(), null);
 });
 
 test("计划、目标与昵称违反格式或上界时明确拒绝", () => {

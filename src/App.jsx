@@ -20,6 +20,7 @@ import {
   upsertGoal,
   upsertItem
 } from "./utils/planner.js";
+import { convertReviewToPlan, deleteReview, upsertReview } from "./utils/review.js";
 import { clearState, getStorageUsage, loadState, MAX_BACKUP_BYTES, saveState, validateState } from "./services/localRepository.js";
 import { decryptBackup, encryptBackup, isEncryptedBackupDocument } from "./utils/backupCrypto.js";
 
@@ -149,7 +150,11 @@ export default function App() {
 
   function updateSetting(key, value) {
     setState((current) => ({ ...current, settings: { ...current.settings, [key]: value } }));
-    notify("偏好已保存在本机；系统通知尚未启用");
+    if (key === "reviewCycleInsight") {
+      notify(value ? "已在复盘中开启周期阶段参考" : "已关闭复盘周期阶段参考");
+    } else {
+      notify("偏好已保存在本机；系统通知尚未启用");
+    }
   }
 
   function saveNickname(nickname) {
@@ -236,6 +241,56 @@ export default function App() {
     notify("目标已删除，名下事项已解除关联并保留");
   }
 
+  function handleSaveReview(type, key, draft) {
+    const todayISO = toISO(getToday());
+    const existed = Boolean(state.reviews?.[type]?.[key]);
+    try {
+      const validated = validateState(upsertReview(state, type, key, draft, todayISO));
+      setState(validated);
+      closeModal();
+      notify(existed ? "复盘内容已更新（原统计快照保持不变）" : "复盘已保存，统计快照已冻结");
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "复盘保存失败");
+    }
+  }
+
+  function handleDeleteReview(type, key) {
+    setState((current) => deleteReview(current, type, key));
+    closeModal();
+    notify("复盘记录已删除");
+  }
+
+  function handleConvertReview(type, key, draft) {
+    const todayISO = toISO(getToday());
+    let withSavedReview;
+    try {
+      withSavedReview = validateState(upsertReview(state, type, key, draft, todayISO));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "复盘保存失败";
+      notify(message);
+      return { ok: false, error: message };
+    }
+
+    try {
+      const { state: convertedState, createdCount } = convertReviewToPlan(withSavedReview, type, key, todayISO);
+      const validated = validateState(convertedState);
+      setState(validated);
+      if (createdCount === 0) {
+        notify("该内容已转入计划，无需重复生成");
+      } else if (type === "monthly") {
+        notify("已转为下月长期目标，并保存复盘");
+      } else {
+        notify(`已转入 ${createdCount} 条计划事项，并保存复盘`);
+      }
+      return { ok: true, createdCount };
+    } catch (error) {
+      setState(withSavedReview);
+      const message = error instanceof Error ? error.message : "转入计划失败";
+      notify(message);
+      return { ok: false, error: message };
+    }
+  }
+
   async function exportData(password) {
     try {
       const encrypted = await encryptBackup(state, password);
@@ -261,11 +316,11 @@ export default function App() {
     try {
       const parsed = JSON.parse(await file.text());
       const data = isEncryptedBackupDocument(parsed) ? await decryptBackup(parsed, password) : (parsed?.data ?? parsed);
-      const wasLegacyV1 = Boolean(data && typeof data === "object" && data.version === undefined);
+      const wasLegacy = Boolean(data && typeof data === "object" && (data.version === undefined || data.reviews === undefined));
       const validated = validateState(data);
       setState(validated);
       closeModal();
-      notify(wasLegacyV1 ? "旧版备份已恢复并无损升级至工作台格式" : "备份已恢复到本机");
+      notify(wasLegacy ? "旧版备份已恢复并无损升级至当前工作台格式" : "备份已恢复到本机");
     } catch (error) {
       notify(error instanceof Error ? error.message : "无法读取：请选择有效的知期备份");
     }
@@ -327,7 +382,13 @@ export default function App() {
             onUpdateGoalStatus={handleUpdateGoalStatus}
           />
         )}
-        {route === "review" && <ReviewPage state={state} onNavigate={navigate} />}
+        {route === "review" && (
+          <ReviewPage
+            state={state}
+            onOpenModal={openModal}
+            onNotify={notify}
+          />
+        )}
         {route === "cycle" && (
           <CyclePage
             state={state}
@@ -363,6 +424,9 @@ export default function App() {
         onDeleteItem={handleDeleteItem}
         onSaveGoal={handleSaveGoal}
         onDeleteGoal={handleDeleteGoal}
+        onSaveReview={handleSaveReview}
+        onDeleteReview={handleDeleteReview}
+        onConvertReview={handleConvertReview}
         onSaveNickname={saveNickname}
         onExport={exportData}
         onImport={importData}

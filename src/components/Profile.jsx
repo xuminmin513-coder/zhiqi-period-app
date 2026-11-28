@@ -15,13 +15,13 @@ export default function Profile({ state, storageUsage, onOpenModal, onInstall, o
   const nickname = state.settings.nickname;
   return (
     <section className="page" aria-label="我的">
-      <PageHeader title="我的" subtitle="本地称呼、存储、提醒与数据边界" />
+      <PageHeader title="我的" subtitle="本地称呼、复盘偏好、存储与数据边界" />
       <div className="stack">
         <article className="card profile-hero">
           <span className="profile-avatar"><Icon name="lock" size={24} /></span>
           <div>
             <h2>{nickname ? `${nickname}的私密工作台` : "本地私密工作台"}</h2>
-            <p>未创建账号 · 无广告追踪 · 计划与经期记录默认不上传</p>
+            <p>未创建账号 · 无广告追踪 · 计划、复盘与经期记录默认不上传</p>
           </div>
         </article>
 
@@ -46,6 +46,11 @@ export default function Profile({ state, storageUsage, onOpenModal, onInstall, o
             <Icon name="chevron" size={17} />
           </button>
           <div className="setting-row">
+            <Icon name="book" />
+            <span className="setting-copy"><strong>复盘结合经期阶段</strong><span>在复盘中参考你自己的周期阶段对比，不做健康判断</span></span>
+            <SettingToggle settingKey="reviewCycleInsight" label="复盘结合经期阶段" settings={state.settings} onSettingChange={onSettingChange} />
+          </div>
+          <div className="setting-row">
             <Icon name="bell" />
             <span className="setting-copy"><strong>经期提醒偏好</strong><span>保存偏好；定时推送将在第三期接入</span></span>
             <SettingToggle settingKey="periodReminder" label="经期提醒偏好" settings={state.settings} onSettingChange={onSettingChange} />
@@ -62,7 +67,7 @@ export default function Profile({ state, storageUsage, onOpenModal, onInstall, o
             <Icon name="download" />
             <span className="setting-copy">
               <strong>加密备份与恢复</strong>
-              <span>包含经期与全部计划 · 本机已用 {formatStorageSize(storageUsage?.bytes || 0)} / 约 5 MB</span>
+              <span>包含经期、计划与复盘 · 本机已用 {formatStorageSize(storageUsage?.bytes || 0)} / 约 5 MB</span>
             </span>
             <Icon name="chevron" size={17} />
           </button>
@@ -81,11 +86,11 @@ export default function Profile({ state, storageUsage, onOpenModal, onInstall, o
         <article className="card settings-card">
           <button className="setting-row danger" onClick={() => onOpenModal("reset")}>
             <Icon name="trash" />
-            <span className="setting-copy"><strong>清除本机全部数据</strong><span>删除计划、经期、称呼与升级备份，请先导出备份</span></span>
+            <span className="setting-copy"><strong>清除本机全部数据</strong><span>删除计划、复盘、经期、称呼与升级备份，请先导出备份</span></span>
             <Icon name="chevron" size={17} />
           </button>
         </article>
-        <p className="version">知期个人工作台 0.3 · 本地优先 · 无服务器连接</p>
+        <p className="version">知期个人工作台 0.4 · 本地优先 · 无服务器连接</p>
       </div>
     </section>
   );

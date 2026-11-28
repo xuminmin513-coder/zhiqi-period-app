@@ -88,7 +88,33 @@ export function createDemoState() {
         [yesterdayISO]: ["demo-item-1", "demo-item-3"]
       }
     },
-    settings: { periodReminder: true, discreetNotifications: true, nickname: "" }
+    reviews: {
+      daily: {
+        [yesterdayISO]: {
+          key: yesterdayISO,
+          mood: 4,
+          energy: 4,
+          bestThing: "按节奏完成了拉伸和饮水打卡",
+          obstacle: "",
+          tomorrowFocus: "继续阅读第 3 章并记笔记",
+          convertedTomorrow: null,
+          snapshot: {
+            plannedCount: 2,
+            doneCount: 2,
+            completionRate: 100,
+            completedTitles: ["晨间热身与拉伸", "喝满 8 杯温水"],
+            pendingTitles: [],
+            cyclePhase: "other"
+          },
+          savedAt: yesterdayISO,
+          updatedAt: yesterdayISO
+        }
+      },
+      weekly: {},
+      monthly: {},
+      yearly: {}
+    },
+    settings: { periodReminder: true, discreetNotifications: true, nickname: "", reviewCycleInsight: false }
   };
 }
 
@@ -103,7 +129,8 @@ export function createBaseState(lastPeriodStart, typicalCycle) {
     historyStarts: [lastPeriodStart],
     logs: {},
     planner: createEmptyPlanner(),
-    settings: { periodReminder: true, discreetNotifications: true, nickname: "" }
+    reviews: { daily: {}, weekly: {}, monthly: {}, yearly: {} },
+    settings: { periodReminder: true, discreetNotifications: true, nickname: "", reviewCycleInsight: false }
   };
 }
 

@@ -1,4 +1,4 @@
-const CACHE_NAME = "zhiqi-react-ui-v8";
+const CACHE_NAME = "zhiqi-react-ui-v9";
 const CORE_ASSETS = ["./", "./index.html", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png", "./manifest.webmanifest"];
 
 async function precacheApplication() {
